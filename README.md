@@ -93,7 +93,7 @@ Where:
 
 The system demonstrates robust tracking capabilities across various conditions:
 
-![Tracking Demo](https://raw.githubusercontent.com/mo-gaafar/icub-eye-tracking-System/main/docs/screenshots/preview.mp4)
+![Tracking Demo](docs/screenshots/preview_compressed.gif)
 
 ### Real-time Performance Plots
 
