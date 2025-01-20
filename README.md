@@ -1,153 +1,135 @@
 # iCub Eye Tracking System
 
-This repository implements a gaze control system for the iCub robot simulator, focusing on fast and accurate gaze shifts towards visual targets.
+## Author
+Mohamed Nasser Gaafer  
+Robotics Programming and IoT Course  
+BioRobotics Institute, Scuola Superiore Sant'Anna, Pisa  
+Course Instructors: Egidio Falotico, Ugo Albanese, Gastone Ciuti
 
-## Overview
+## Abstract
 
-The system implements a sophisticated gaze control mechanism with the following features:
-- Real-time detection and tracking of a red sphere in the environment
-- Two-phase gaze control strategy:
-  1. Fast initial eye movement towards the target
-  2. Coordinated head-eye movement for precise tracking
-- Integration with iCub simulator and YARP middleware
+This project implements a biologically-inspired gaze control system for the iCub humanoid robot. The system employs a hierarchical control architecture that combines smooth pursuit eye movements with coordinated head motion to achieve natural-looking gaze behavior. The implementation demonstrates fundamental concepts in robotic vision and bio-inspired control systems, with particular emphasis on real-time performance and stability.
 
-## Prerequisites
+![System Overview](docs/screenshots/system_overview.png)
 
+## System Architecture
+
+The system operates in three stages:
+
+1. **Visual Processing**
+   - Camera input processing (320x240 resolution)
+   - Red object detection using RGB thresholding
+   - Target position calculation via centroid
+
+2. **Control System**
+   - PID-based eye control
+   - Velocity-based head control
+   - Coordinated eye-head movement
+
+3. **Motor Interface**
+   - 50Hz control loop (20ms period)
+   - Position control for eyes
+   - Velocity control for neck
+
+
+## Control System Design
+
+### Eye Control
+
+The eye movement uses a PID controller with the following parameters:
+
+$$
+\begin{aligned}
+u(t) &= K_p e(t) + K_i \int e(t)dt + K_d \dot{e}(t) \\
+\text{where: } K_p &= 0.2, \quad K_i = 0.01, \quad K_d = 0.05
+\end{aligned}
+$$
+
+Key features:
+- Error calculated in image coordinates (pixels)
+- Integral windup prevention (±10.0 limit)
+- Output in motor degrees
+
+### Head Control
+
+Head movement follows eye position using:
+
+$$
+v_{neck} = -1.2 \cdot \theta_{eye}
+$$
+
+Where:
+- $v_{neck}$ is neck velocity
+- $\theta_{eye}$ is eye deviation from center
+- Movement starts when eyes deviate > 0.1°
+
+## Implementation Details
+
+### Prerequisites
 - Ubuntu 22.04 (Jammy)
 - YARP 3.7
-- iCub Main 1.25.0 (with simulator)
+- iCub Main 1.25.0
 
-For detailed installation instructions, see [INSTALL.md](INSTALL.md).
+### Core Components
 
-## Project Structure
+1. **Visual Processing**
+   - RGB thresholding with conditions:
+     $$
+     \begin{cases}
+     R > 2G \\
+     R > 2B
+     \end{cases}
+     $$
+   - Minimum 50 pixels required for tracking
 
-The project is organized into the following modules:
+2. **Control Loop**
+   - 20ms cycle time (50Hz)
+   - Synchronized eye-head motion
+   - Smooth velocity transitions
 
-```
-src/
-├── types/
-│   └── GazeTypes.h           # Common types and constants
-├── control/
-│   ├── RobotHeadControl.h    # Robot head movement control
-│   ├── RobotHeadControl.cpp
-│   ├── SearchBehavior.h      # Natural search pattern behavior
-│   └── SearchBehavior.cpp
-├── vision/
-│   ├── SphereDetector.h      # Target detection algorithms
-│   └── SphereDetector.cpp
-├── GazeController.h          # Main controller
-└── GazeController.cpp
-```
+## Results
 
-### Modules
+### Visual Tracking Performance
 
-1. **Types Module** (`types/`)
-   - Defines common types and constants used across the system
-   - Includes control parameters and state definitions
+The system demonstrates robust tracking capabilities across various conditions:
 
-2. **Control Module** (`control/`)
-   - `RobotHeadControl`: Manages robot head and eye movements
-   - `SearchBehavior`: Implements natural search patterns
+![Tracking Demo](docs/screenshots/preview.mp4)
 
-3. **Vision Module** (`vision/`)
-   - `SphereDetector`: Handles target detection and tracking
+### Real-time Performance Plots
 
-4. **Main Controller**
-   - Coordinates the interaction between modules
-   - Implements state machine for search and tracking behavior
+Real-time visualization of tracking errors and motor positions:
 
-## Features
+![Error Plot](docs/screenshots/error_plot.png)
+![Position Plot](docs/screenshots/position_plot.png)
 
-- Human-like search behavior with natural head movements
-- Smooth head-eye coordination during tracking
-- Automatic switching between search and tracking modes
-- Maintains level head posture
-- Robust target detection
+## Future Development
 
-## Dependencies
+The system can be extended through:
+- Integration with deep learning-based object detection
+- Adaptive control for improved tracking performance
+- Predictive motion estimation
 
-- YARP
-- C++17 or later
-- CMake 3.5 or later
+## Building and Running
 
-## Building
+The project includes convenience scripts for common operations:
 
+1. First-time setup and building:
 ```bash
-mkdir build && cd build
-cmake ..
-make
+./rebuild.sh
 ```
 
-## Running
-
-1. Start the YARP server:
+2. Running the system:
 ```bash
-yarpserver
+./run.sh
 ```
 
-2. Start the iCub simulator:
+3. Shutting down all components:
 ```bash
-iCub_SIM
+./shutdown.sh
 ```
 
-3. Run the eye tracking program:
-```bash
-./bin/icub_eye_tracking
-```
+## Useful References
 
-## Development Guidelines
+1. Pattacini, U., et al. (2010). An experimental evaluation of a novel minimum-jerk cartesian controller for humanoid robots. IEEE/RSJ International Conference on Intelligent Robots and Systems.
 
-1. Code Quality
-   - Write unit tests for all new backend code
-   - Follow C++ best practices and SOLID principles
-   - Use consistent code formatting
-
-2. Documentation
-   - Update documentation for any new features or changes
-   - Keep the changelog current
-   - Document complex algorithms and design decisions
-
-3. Testing
-   - Run unit tests before committing: `make test`
-   - Test with different sphere positions and movements
-   - Verify both phases of gaze control
-
-## Changelog
-
-### [0.2.0] - 2025-01-19
-- Migrated from Docker to native Ubuntu environment
-- Added detailed installation guide
-- Improved project documentation
-- Added unit test framework
-- Updated build system for better dependency management
-
-### [0.1.0] - 2025-01-15
-- Initial project setup
-- Basic project structure
-- Documentation for setup and requirements
-
-## Recent Changes
-
-- Refactored code into modular components for better maintainability
-- Added roll control to keep head level during movements
-- Improved search pattern with wider range of motion
-- Enhanced error handling and debugging output
-- Added proper cleanup in destructors
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Write and test your changes
-4. Update documentation and changelog
-5. Submit a pull request
-
-## Acknowledgments
-
-- iCub Robotics team for the simulator and support
-- YARP development team
-- Contributors and maintainers
+2. Roncone, A., et al. (2016). Gaze stabilization for humanoid robots: A comprehensive framework. IEEE-RAS International Conference on Humanoid Robots.
