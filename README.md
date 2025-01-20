@@ -8,6 +8,8 @@ Course Instructors: Egidio Falotico, Ugo Albanese, Gastone Ciuti
 
 ## Abstract
 
+
+
 This project implements a biologically-inspired gaze control system for the iCub humanoid robot. The system employs a hierarchical control architecture that combines smooth pursuit eye movements with coordinated head motion to achieve natural-looking gaze behavior. The implementation demonstrates fundamental concepts in robotic vision and bio-inspired control systems, with particular emphasis on real-time performance and stability.
 
 ![System Overview](docs/screenshots/system_overview.png)
@@ -93,7 +95,7 @@ Where:
 
 The system demonstrates robust tracking capabilities across various conditions:
 
-![Tracking Demo](https://raw.githubusercontent.com/mo-gaafar/icub-eye-tracking-System/main/docs/screenshots/preview.mp4)
+![Tracking Demo](https://github.com/user-attachments/assets/77daaf11-1af8-4641-ae73-4d66149ae396)
 
 ### Real-time Performance Plots
 
