@@ -1,155 +1,200 @@
-#include <yarp/os/all.h>
-#include <iostream>
-#include <yarp/sig/all.h>
-#include <yarp/dev/all.h>
-#include <string>
+#include "GazeThread.h"
+#include "PlotWindow.h"
+#include <yarp/os/LogStream.h>
+#include <cstdlib>
 #include <ctime>
-#include <cmath>
+#include <vector>
+#include <QApplication>
 
-using namespace yarp::os;
-using namespace yarp::sig;
-using namespace yarp::dev;
-using namespace std;
+// Sphere parameters
+const double SPHERE_RADIUS = 0.04;
+const double SPHERE_Z = 0.8;
 
-class MyThread : public PeriodicThread {
+// Movement boundaries
+const double MIN_X = -0.3;
+const double MAX_X = 0.3;
+const double MIN_Y = 0.6;
+const double MAX_Y = 1.1;
+
+class GazeControlApp {
 public:
-    MyThread(double period) : PeriodicThread(period) {
-        bool ok = imagePort.open("/img");
-        if (!ok) {
-            cerr << "Failed to open the port" << endl;
-            return;
+    GazeControlApp() : plotWindow(nullptr) {}
+    
+    bool configure() {
+        if (!yarp.checkNetwork()) {
+            yError() << "YARP network not available";
+            return false;
         }
-        yarp.connect("/icubSim/cam/left", "/img");
 
-        // Creating the connection, associating names of the port
-        prop.put("device", "remote_controlboard");
-        prop.put("local", "/thread");
-        prop.put("remote", "/icubSim/head");
+        // Open RPC port for simulator control
+        if (!worldPort.open("/gazeControl/world:o")) {
+            yError() << "Failed to open world port";
+            return false;
+        }
+        yarp.connect("/gazeControl/world:o", "/icubSim/world");
 
-        pd.open(prop); // starting the polydriver
-        // Opening the controllers we want to use
-        pd.view(ipc);
-        pd.view(enc);
-        encposition = 0.0;
+        // Create initial sphere
+        if (!createSphere()) {
+            yError() << "Failed to create sphere";
+            return false;
+        }
+        yInfo() << "Created sphere successfully";
+
+        // Start gaze control thread
+        gazeControl.reset(new GazeThread(0.02));  // 50Hz control loop
+        if (!gazeControl->configure()) {
+            yError() << "Failed to configure gaze control";
+            return false;
+        }
+        gazeControl->start();
+        yInfo() << "Started gaze control thread";
+        
+        // Create plot window
+        plotWindow = new PlotWindow();
+        plotWindow->show();
+        
+        return true;
+    }
+    
+    void run() {
+        // Initialize last position
+        double lastX = 0.0;
+        double lastY = 0.9;
+        
+        // Main loop - move sphere randomly
+        for (int iter = 0; iter < 6 && !isStopping; iter++) {
+            yInfo() << "Iteration" << iter + 1 << "of 6";
+            
+            // Generate new position
+            double newX, newY;
+            generateNewPosition(lastX, lastY, newX, newY);
+            
+            yInfo() << "Moving sphere to (x,y) = (" << newX << "," << newY << ")";
+            
+            if (!moveSphere(newX, newY)) {
+                yError() << "Failed to move sphere";
+                continue;
+            }
+            
+            gazeControl->isMovementDone = false;
+            
+            // Wait for gaze to stabilize
+            while (!gazeControl->isMovementDone && !isStopping) {
+                // Update plot with current errors and positions
+                if (plotWindow) {
+                    plotWindow->addDataPoint(
+                        gazeControl->getErrorX(),
+                        gazeControl->getErrorY(),
+                        gazeControl->getEyeX(),
+                        gazeControl->getEyeY(),
+                        gazeControl->getNeckPitch(),
+                        gazeControl->getNeckYaw()
+                    );
+                }
+                yarp::os::Time::delay(0.1);
+            }
+            
+            yInfo() << "Gaze stabilized at position" << iter + 1;
+            yarp::os::Time::delay(2.0);  // Pause at each position
+            
+            // Update last position
+            lastX = newX;
+            lastY = newY;
+        }
+    }
+    
+    void stop() {
+        isStopping = true;
+        if (gazeControl) {
+            gazeControl->stop();
+        }
+        worldPort.close();
+        delete plotWindow;
     }
 
 private:
-    Network yarp;
-    Property prop;
-    PolyDriver pd;
-    IPositionControl *ipc;
-    IEncoders *enc;
-    BufferedPort<ImageOf<PixelRgb>> imagePort;
-    double pos = 0.0;
-    double encposition;
-
-protected:
-    void run() override {
-        ImageOf<PixelRgb> *image = imagePort.read();
-        if (!image) return;
-
-        int pixelmean = 0;
-        int howmanypix = 0;
+    yarp::os::Network yarp;
+    yarp::os::RpcClient worldPort;
+    std::unique_ptr<GazeThread> gazeControl;
+    PlotWindow* plotWindow;
+    bool isStopping{false};
+    
+    bool createSphere() {
+        yarp::os::Bottle cmd, reply;
         
-        for (int x = 0; x < image->width(); x++) {
-            for (int y = 0; y < image->height(); y++) {
-                PixelRgb &pixel = image->pixel(x, y);
-                if (pixel.r > 2 * pixel.g && pixel.r > 2 * pixel.b) {
-                    pixelmean += x;
-                    howmanypix++;
-                }
-            }
-        }
-
-        if (howmanypix > 0) {
-            pixelmean = pixelmean / howmanypix;
-            int err = pixelmean - (image->width() / 2);
-            double deg = err / 4.0;
-            
-            bool ok = enc->getEncoder(4, &encposition);
-            cout << "Encoder value: " << encposition << endl;
-
-            if (!ok) {
-                cerr << "Failed to read the encoder" << endl;
-                return;
-            }
-
-            pos = encposition;
-            pos += deg;
-            ipc->positionMove(4, pos);
-        }
+        // Clear any existing objects
+        cmd.addString("world");
+        cmd.addString("del");
+        cmd.addString("all");
+        worldPort.write(cmd, reply);
+        
+        // Create new sphere
+        cmd.clear();
+        cmd.addString("world");
+        cmd.addString("mk");
+        cmd.addString("ssph");
+        cmd.addFloat64(SPHERE_RADIUS);
+        cmd.addFloat64(0.0);      // Initial X
+        cmd.addFloat64(0.9);      // Initial Y
+        cmd.addFloat64(SPHERE_Z);
+        cmd.addFloat64(1.0);  // Red
+        cmd.addFloat64(0.0);  // Green
+        cmd.addFloat64(0.0);  // Blue
+        
+        return worldPort.write(cmd, reply);
     }
-
-    void threadRelease() override {
-        pd.close();
+    
+    bool moveSphere(double x, double y) {
+        yarp::os::Bottle cmd, reply;
+        cmd.addString("world");
+        cmd.addString("set");
+        cmd.addString("ssph");
+        cmd.addInt32(1);  // Sphere ID
+        cmd.addFloat64(x);
+        cmd.addFloat64(y);
+        cmd.addFloat64(SPHERE_Z);
+        
+        return worldPort.write(cmd, reply);
+    }
+    
+    void generateNewPosition(double lastX, double lastY, double& newX, double& newY) {
+        srand(time(0));
+        
+        do {
+            float randomRangeX = -0.1 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX/(0.2)));
+            float randomRangeY = -0.1 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX/(0.2)));
+            
+            newX = (randomRangeX < 0) ? lastX + randomRangeX - 0.2 : lastX + randomRangeX + 0.2;
+            newY = (randomRangeY < 0) ? lastY + randomRangeY - 0.2 : lastY + randomRangeY + 0.2;
+            
+            newX = std::max(MIN_X, std::min(MAX_X, newX));
+            newY = std::max(MIN_Y, std::min(MAX_Y, newY));
+            
+        } while (std::abs(newX - lastX) < 0.2 || std::abs(newY - lastY) < 0.2);
     }
 };
 
 int main(int argc, char *argv[]) {
-    // Set up YARP
-    Network yarp;
+    QApplication app(argc, argv);
     
-    // Create an RPC port
-    RpcClient rpc;
-    bool ok = rpc.open("/sphere");
-    if (!ok) {
-        cerr << "Failed to open the port" << endl;
+    GazeControlApp gazeApp;
+    if (!gazeApp.configure()) {
         return 1;
     }
-
-    yarp.connect("/sphere", "/icubSim/world");
-
-    Bottle b, reply;
-
-    // Clear the world
-    b.addString("world");
-    b.addString("del");
-    b.addString("all");
-    rpc.write(b, reply);
-
-    // Create a red sphere
-    b.clear();
-    reply.clear();
-    b.addString("world");
-    b.addString("mk");
-    b.addString("ssph");
-    b.addFloat64(0.04);    // radius
-    b.addFloat64(-0.3);    // x
-    b.addFloat64(0.9);     // y
-    b.addFloat64(0.8);     // z
-    b.addInt32(1);         // red
-    b.addInt32(0);         // green
-    b.addInt32(0);         // blue
-
-    rpc.write(b, reply);
-    cout << "Sphere creation response: " << reply.toString() << endl;
-
-    // Start the tracking thread
-    double x = -0.3;
-    double step;
-    MyThread mt(0.5);
-    mt.start();
-
-    // Move the sphere back and forth
-    for (int iter = 0; iter < 4; iter++) {
-        step = (iter % 2 == 0) ? 0.005 : -0.005;
-        
-        for (int ii = 0; ii < 120; ii++) {
-            b.clear();
-            x += step;
-            
-            b.addString("world");
-            b.addString("set");
-            b.addString("ssph");
-            b.addInt32(1);
-            b.addFloat64(x);
-            b.addFloat64(0.9);
-            b.addFloat64(0.8);
-
-            rpc.write(b, reply);
-            Time::delay(0.1);
-        }
+    
+    // Run the gaze control in a separate thread
+    std::thread gazeThread([&gazeApp]() {
+        gazeApp.run();
+    });
+    
+    // Run Qt event loop
+    int result = app.exec();
+    
+    // Cleanup
+    gazeApp.stop();
+    if (gazeThread.joinable()) {
+        gazeThread.join();
     }
-
-    return 0;
+    
+    return result;
 }

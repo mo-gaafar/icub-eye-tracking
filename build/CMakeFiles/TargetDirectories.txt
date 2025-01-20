@@ -1,5 +1,0 @@
-/home/mngaafar/Desktop/Parallels Shared Folders/GitHub/icub-eye-tracking/build/CMakeFiles/edit_cache.dir
-/home/mngaafar/Desktop/Parallels Shared Folders/GitHub/icub-eye-tracking/build/CMakeFiles/rebuild_cache.dir
-/home/mngaafar/Desktop/Parallels Shared Folders/GitHub/icub-eye-tracking/build/src/CMakeFiles/icub_eye_tracking.dir
-/home/mngaafar/Desktop/Parallels Shared Folders/GitHub/icub-eye-tracking/build/src/CMakeFiles/edit_cache.dir
-/home/mngaafar/Desktop/Parallels Shared Folders/GitHub/icub-eye-tracking/build/src/CMakeFiles/rebuild_cache.dir

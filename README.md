@@ -14,55 +14,85 @@ The system implements a sophisticated gaze control mechanism with the following 
 ## Prerequisites
 
 - Ubuntu 22.04 (Jammy)
-- YARP 3.10.1
-- iCub Main (with simulator)
-- OpenCV and other dependencies
+- YARP 3.7
+- iCub Main 1.25.0 (with simulator)
 
 For detailed installation instructions, see [INSTALL.md](INSTALL.md).
 
 ## Project Structure
 
+The project is organized into the following modules:
+
 ```
 src/
-  ├── controllers/     # Eye and head movement controllers
-  │   ├── GazeController.cpp    # Main gaze control implementation
-  │   └── HeadController.cpp    # Head movement coordination
-  ├── vision/         # Image processing and sphere detection
-  │   ├── SphereDetector.cpp    # Red sphere detection algorithms
-  │   └── ImageProcessor.cpp    # Camera image processing
-  ├── utils/          # Utility functions and common code
-  │   ├── YarpHelper.cpp        # YARP interface utilities
-  │   └── Math.cpp              # Mathematical utilities
-  ├── test/          # Unit tests
-  │   ├── test_sphere_detector.cpp
-  │   └── test_gaze_controller.cpp
-  └── main.cpp        # Main application entry point
+├── types/
+│   └── GazeTypes.h           # Common types and constants
+├── control/
+│   ├── RobotHeadControl.h    # Robot head movement control
+│   ├── RobotHeadControl.cpp
+│   ├── SearchBehavior.h      # Natural search pattern behavior
+│   └── SearchBehavior.cpp
+├── vision/
+│   ├── SphereDetector.h      # Target detection algorithms
+│   └── SphereDetector.cpp
+├── GazeController.h          # Main controller
+└── GazeController.cpp
 ```
 
-## Building the Project
+### Modules
+
+1. **Types Module** (`types/`)
+   - Defines common types and constants used across the system
+   - Includes control parameters and state definitions
+
+2. **Control Module** (`control/`)
+   - `RobotHeadControl`: Manages robot head and eye movements
+   - `SearchBehavior`: Implements natural search patterns
+
+3. **Vision Module** (`vision/`)
+   - `SphereDetector`: Handles target detection and tracking
+
+4. **Main Controller**
+   - Coordinates the interaction between modules
+   - Implements state machine for search and tracking behavior
+
+## Features
+
+- Human-like search behavior with natural head movements
+- Smooth head-eye coordination during tracking
+- Automatic switching between search and tracking modes
+- Maintains level head posture
+- Robust target detection
+
+## Dependencies
+
+- YARP
+- C++17 or later
+- CMake 3.5 or later
+
+## Building
 
 ```bash
 mkdir build && cd build
 cmake ..
-make -j$(nproc)
+make
 ```
 
-## Running the Application
+## Running
 
 1. Start the YARP server:
 ```bash
 yarpserver
 ```
 
-2. In a new terminal, launch the iCub simulator:
+2. Start the iCub simulator:
 ```bash
 iCub_SIM
 ```
 
-3. In another terminal, run the eye tracking application:
+3. Run the eye tracking program:
 ```bash
-cd build
-./icub_eye_tracking
+./bin/icub_eye_tracking
 ```
 
 ## Development Guidelines
@@ -95,6 +125,14 @@ cd build
 - Initial project setup
 - Basic project structure
 - Documentation for setup and requirements
+
+## Recent Changes
+
+- Refactored code into modular components for better maintainability
+- Added roll control to keep head level during movements
+- Improved search pattern with wider range of motion
+- Enhanced error handling and debugging output
+- Added proper cleanup in destructors
 
 ## License
 
