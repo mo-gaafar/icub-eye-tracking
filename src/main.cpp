@@ -6,11 +6,11 @@
 #include <vector>
 #include <QApplication>
 
-// Sphere parameters
+// sphere parameters
 const double SPHERE_RADIUS = 0.04;
 const double SPHERE_Z = 0.8;
 
-// Movement boundaries
+// movement boundaries
 const double MIN_X = -0.3;
 const double MAX_X = 0.3;
 const double MIN_Y = 0.6;
@@ -22,34 +22,34 @@ public:
     
     bool configure() {
         if (!yarp.checkNetwork()) {
-            yError() << "YARP network not available";
+            yError() << "yarp network not available";
             return false;
         }
 
-        // Open RPC port for simulator control
+        // open rpc port for simulator control
         if (!worldPort.open("/gazeControl/world:o")) {
-            yError() << "Failed to open world port";
+            yError() << "failed to open world port";
             return false;
         }
         yarp.connect("/gazeControl/world:o", "/icubSim/world");
 
-        // Create initial sphere
+        // create initial sphere
         if (!createSphere()) {
-            yError() << "Failed to create sphere";
+            yError() << "failed to create sphere";
             return false;
         }
-        yInfo() << "Created sphere successfully";
+        yInfo() << "created sphere successfully";
 
-        // Start gaze control thread
-        gazeControl.reset(new GazeThread(0.02));  // 50Hz control loop
+        // start gaze control thread
+        gazeControl.reset(new GazeThread(0.02));  // 50hz control loop
         if (!gazeControl->configure()) {
-            yError() << "Failed to configure gaze control";
+            yError() << "failed to configure gaze control";
             return false;
         }
         gazeControl->start();
-        yInfo() << "Started gaze control thread";
+        yInfo() << "started gaze control thread";
         
-        // Create plot window
+        // create plot window
         plotWindow = new PlotWindow();
         plotWindow->show();
         
@@ -57,30 +57,30 @@ public:
     }
     
     void run() {
-        // Initialize last position
+        // initialize last position
         double lastX = 0.0;
         double lastY = 0.9;
         
-        // Main loop - move sphere randomly
+        // main loop - move sphere randomly
         for (int iter = 0; iter < 6 && !isStopping; iter++) {
-            yInfo() << "Iteration" << iter + 1 << "of 6";
+            yInfo() << "iteration" << iter + 1 << "of 6";
             
-            // Generate new position
+            // generate new position
             double newX, newY;
             generateNewPosition(lastX, lastY, newX, newY);
             
-            yInfo() << "Moving sphere to (x,y) = (" << newX << "," << newY << ")";
+            yInfo() << "moving sphere to (x,y) = (" << newX << "," << newY << ")";
             
             if (!moveSphere(newX, newY)) {
-                yError() << "Failed to move sphere";
+                yError() << "failed to move sphere";
                 continue;
             }
             
             gazeControl->isMovementDone = false;
             
-            // Wait for gaze to stabilize
+            // wait for gaze to stabilize
             while (!gazeControl->isMovementDone && !isStopping) {
-                // Update plot with current errors and positions
+                // update plot with current errors and positions
                 if (plotWindow) {
                     plotWindow->addDataPoint(
                         gazeControl->getErrorX(),
@@ -94,10 +94,10 @@ public:
                 yarp::os::Time::delay(0.1);
             }
             
-            yInfo() << "Gaze stabilized at position" << iter + 1;
-            yarp::os::Time::delay(2.0);  // Pause at each position
+            yInfo() << "gaze stabilized at position" << iter + 1;
+            yarp::os::Time::delay(2.0);  // pause at each position
             
-            // Update last position
+            // update last position
             lastX = newX;
             lastY = newY;
         }
@@ -122,24 +122,24 @@ private:
     bool createSphere() {
         yarp::os::Bottle cmd, reply;
         
-        // Clear any existing objects
+        // clear any existing objects
         cmd.addString("world");
         cmd.addString("del");
         cmd.addString("all");
         worldPort.write(cmd, reply);
         
-        // Create new sphere
+        // create new sphere
         cmd.clear();
         cmd.addString("world");
         cmd.addString("mk");
         cmd.addString("ssph");
         cmd.addFloat64(SPHERE_RADIUS);
-        cmd.addFloat64(0.0);      // Initial X
-        cmd.addFloat64(0.9);      // Initial Y
+        cmd.addFloat64(0.0);      // initial x
+        cmd.addFloat64(0.9);      // initial y
         cmd.addFloat64(SPHERE_Z);
-        cmd.addFloat64(1.0);  // Red
-        cmd.addFloat64(0.0);  // Green
-        cmd.addFloat64(0.0);  // Blue
+        cmd.addFloat64(1.0);  // red
+        cmd.addFloat64(0.0);  // green
+        cmd.addFloat64(0.0);  // blue
         
         return worldPort.write(cmd, reply);
     }
@@ -149,7 +149,7 @@ private:
         cmd.addString("world");
         cmd.addString("set");
         cmd.addString("ssph");
-        cmd.addInt32(1);  // Sphere ID
+        cmd.addInt32(1);  // sphere id
         cmd.addFloat64(x);
         cmd.addFloat64(y);
         cmd.addFloat64(SPHERE_Z);
@@ -182,15 +182,15 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-    // Run the gaze control in a separate thread
+    // run the gaze control in a separate thread
     std::thread gazeThread([&gazeApp]() {
         gazeApp.run();
     });
     
-    // Run Qt event loop
+    // run qt event loop
     int result = app.exec();
     
-    // Cleanup
+    // cleanup
     gazeApp.stop();
     if (gazeThread.joinable()) {
         gazeThread.join();

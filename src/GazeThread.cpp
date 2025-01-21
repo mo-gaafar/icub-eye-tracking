@@ -24,50 +24,50 @@ GazeThread::~GazeThread() {
 }
 
 bool GazeThread::configure() {
-    // Open image input port
+    // open image input port
     if (!imagePort.open("/gazeControl/img:i")) {
-        yError() << "Failed to open image port";
+        yError() << "failed to open image port";
         return false;
     }
     yarp.connect("/icubSim/cam/left", "/gazeControl/img:i");
     
-    // Configure robot head
+    // configure robot head
     prop.put("device", "remote_controlboard");
     prop.put("local", "/gazeControl");
     prop.put("remote", "/icubSim/head");
     
     if (!robotHead.open(prop)) {
-        yError() << "Failed to connect to robot head";
+        yError() << "failed to connect to robot head";
         return false;
     }
     
-    // Get interfaces
+    // get interfaces
     bool ok = robotHead.view(ipc) &&
               robotHead.view(enc) &&
               robotHead.view(ivc) &&
               robotHead.view(icm);
               
     if (!ok) {
-        yError() << "Failed to get interfaces";
+        yError() << "failed to get interfaces";
         robotHead.close();
         return false;
     }
     
-    // Initialize control modes
+    // initialize control modes
     icm->setControlMode(0, VOCAB_CM_POSITION);  // neck pitch
     icm->setControlMode(2, VOCAB_CM_POSITION);  // neck yaw
     icm->setControlMode(3, VOCAB_CM_POSITION);  // eyes tilt
     icm->setControlMode(4, VOCAB_CM_POSITION);  // eyes pan
     
-    // Move to initial position
+    // move to initial position
     ipc->positionMove(0, 0.0);
     ipc->positionMove(2, 0.0);
     ipc->positionMove(3, 0.0);
     ipc->positionMove(4, 0.0);
     
-    yarp::os::Time::delay(2.0);  // Wait for initial positioning
+    yarp::os::Time::delay(2.0);  // wait for initial positioning
     
-    // Switch neck to velocity control
+    // switch neck to velocity control
     icm->setControlMode(0, VOCAB_CM_VELOCITY);
     icm->setControlMode(2, VOCAB_CM_VELOCITY);
     ivc->velocityMove(0, 0.0);
@@ -77,11 +77,11 @@ bool GazeThread::configure() {
 }
 
 void GazeThread::run() {
-    // Get image
+    // get image
     ImageOf<PixelRgb>* image = imagePort.read();
     if (!image) return;
     
-    // Find red pixels
+    // find red pixels
     int pixelMeanX = 0, pixelMeanY = 0;
     int numRedPixels = 0;
     
@@ -96,48 +96,48 @@ void GazeThread::run() {
         }
     }
     
-    if (numRedPixels < 50) return;  // Not enough red pixels found
+    if (numRedPixels < 50) return;  // not enough red pixels found
     
-    // Calculate centroid
+    // calculate centroid
     pixelMeanX /= numRedPixels;
     pixelMeanY /= numRedPixels;
     
-    // Calculate error from center
+    // calculate error from center
     errX = pixelMeanX - (image->width() / 2);
     errY = pixelMeanY - (image->height() / 2);
     
-    // Update integral terms with anti-windup
+    // update integral terms with anti-windup
     integralX += errX;
     integralY += errY;
     
-    // Apply anti-windup by clamping integral terms
+    // apply anti-windup by clamping integral terms
     integralX = std::max(-MAX_INTEGRAL, std::min(MAX_INTEGRAL, integralX));
     integralY = std::max(-MAX_INTEGRAL, std::min(MAX_INTEGRAL, integralY));
     
-    // PID Control
-    double degX = errX * Kp +                    // Proportional
-                 integralX * Ki +                // Integral
-                 (lastErrX - errX) * Kd;         // Derivative
+    // pid control
+    double degX = errX * Kp +                    // proportional
+                 integralX * Ki +                // integral
+                 (lastErrX - errX) * Kd;         // derivative
                  
-    double degY = errY * Kp +                    // Proportional
-                 integralY * Ki +                // Integral
-                 (lastErrY - errY) * Kd;         // Derivative
+    double degY = errY * Kp +                    // proportional
+                 integralY * Ki +                // integral
+                 (lastErrY - errY) * Kd;         // derivative
     
-    // Get current eye positions
-    enc->getEncoder(4, &eyeEncoderYawPosition);   // Eye Yaw
-    enc->getEncoder(3, &eyeEncoderTiltPosition);  // Eye Tilt
-    enc->getEncoder(0, &neckPitchPosition);       // Neck Pitch
-    enc->getEncoder(2, &neckYawPosition);         // Neck Yaw
+    // get current eye positions
+    enc->getEncoder(4, &eyeEncoderYawPosition);   // eye yaw
+    enc->getEncoder(3, &eyeEncoderTiltPosition);  // eye tilt
+    enc->getEncoder(0, &neckPitchPosition);       // neck pitch
+    enc->getEncoder(2, &neckYawPosition);         // neck yaw
     
-    // Update eye positions
+    // update eye positions
     eyeYawPosition = eyeEncoderYawPosition + degX;
-    eyeTiltPosition = eyeEncoderTiltPosition - degY;  // Negative because image Y is inverted
+    eyeTiltPosition = eyeEncoderTiltPosition - degY;  // negative because image y is inverted
     
-    // Move eyes
+    // move eyes
     ipc->positionMove(4, eyeYawPosition);
     ipc->positionMove(3, eyeTiltPosition);
     
-    // Head compensation when eyes are not centered
+    // head compensation when eyes are not centered
     if (std::abs(eyeEncoderYawPosition) > 0.1 || std::abs(eyeEncoderTiltPosition) > 0.1) {
         double neckPitchVel = eyeTiltPosition * HEAD_GAIN;
         double neckYawVel = -eyeYawPosition * HEAD_GAIN;
@@ -148,16 +148,16 @@ void GazeThread::run() {
         ivc->velocityMove(0, 0.0);
         ivc->velocityMove(2, 0.0);
         
-        // Reset integral terms when centered to prevent drift
+        // reset integral terms when centered to prevent drift
         integralX = 0.0;
         integralY = 0.0;
     }
     
-    // Store errors for derivative control
+    // store errors for derivative control
     lastErrX = errX;
     lastErrY = errY;
     
-    // Check if movement is complete
+    // check if movement is complete
     isMovementDone = (std::abs(errX) < ERROR_THRESHOLD &&
                      std::abs(errY) < ERROR_THRESHOLD &&
                      std::abs(eyeEncoderTiltPosition) < POSITION_THRESHOLD &&
@@ -165,13 +165,13 @@ void GazeThread::run() {
 }
 
 void GazeThread::threadRelease() {
-    // Stop all movements
+    // stop all movements
     if (ivc) {
         ivc->velocityMove(0, 0.0);
         ivc->velocityMove(2, 0.0);
     }
     
-    // Close devices and ports
+    // close devices and ports
     robotHead.close();
     imagePort.close();
 }

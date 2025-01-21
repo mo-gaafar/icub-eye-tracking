@@ -1,135 +1,91 @@
 # iCub Eye Tracking System
 
+A real-time gaze control system for the iCub humanoid robot that tracks red objects using coordinated eye-head movements.
+
 ## Author
-Mohamed Nasser Gaafer  
-Robotics Programming and IoT Course  
-BioRobotics Institute, Scuola Superiore Sant'Anna, Pisa  
-Course Instructors: Egidio Falotico, Ugo Albanese, Gastone Ciuti
+**Mohamed Nasser Gaafer**  
+Robotics Programming Frameworks and IoT  
+Scuola Superiore Sant'Anna, Pisa  
+Course Instructors: Egidio Falotico, Ugo Albanese
 
-## Abstract
+## Overview
 
-This project implements a biologically-inspired gaze control system for the iCub humanoid robot. The system employs a hierarchical control architecture that combines smooth pursuit eye movements with coordinated head motion to achieve natural-looking gaze behavior. The implementation demonstrates fundamental concepts in robotic vision and bio-inspired control systems, with particular emphasis on real-time performance and stability.
+This system enables the iCub robot to track moving red objects by:
+- Processing camera input to detect red objects
+- Controlling eye movements using PID control
+- Coordinating head movements based on eye position
+- Providing real-time visualization of tracking performance
 
-![System Overview](docs/screenshots/system_overview.png)
-
-## System Architecture
-
-The system operates in three stages:
-
-1. **Visual Processing**
-   - Camera input processing (320x240 resolution)
-   - Red object detection using RGB thresholding
-   - Target position calculation via centroid
-
-2. **Control System**
-   - PID-based eye control
-   - Velocity-based head control
-   - Coordinated eye-head movement
-
-3. **Motor Interface**
-   - 50Hz control loop (20ms period)
-   - Position control for eyes
-   - Velocity control for neck
-
-
-## Control System Design
+## Control System
 
 ### Eye Control
-
-The eye movement uses a PID controller with the following parameters:
+Uses PID control for precise positioning:
 
 $$
 \begin{aligned}
-u(t) &= K_p e(t) + K_i \int e(t)dt + K_d \dot{e}(t) \\
+\Delta\theta(t) &= K_p e(t) + K_i \int e(t)dt + K_d \frac{de(t)}{dt} \\
 \text{where: } K_p &= 0.2, \quad K_i = 0.01, \quad K_d = 0.05
 \end{aligned}
 $$
 
-Key features:
 - Error calculated in image coordinates (pixels)
-- Integral windup prevention (±10.0 limit)
-- Output in motor degrees
+- Anti-windup limit: ±10.0
+- Position threshold: 0.2°
+- Error threshold: 1.0 pixels
 
 ### Head Control
-
-Head movement follows eye position using:
+Simple proportional control based on eye position:
 
 $$
-v_{neck} = -1.2 \cdot \theta_{eye}
+\begin{aligned}
+v_{neck}(t) &= -K_{head} \theta_{eye}(t) \\
+\text{where: } K_{head} &= 1.2
+\end{aligned}
 $$
 
-Where:
-- $v_{neck}$ is neck velocity
-- $\theta_{eye}$ is eye deviation from center
-- Movement starts when eyes deviate > 0.1°
+- Compensatory movement opposite to eye direction
+- Activates when eyes deviate >0.1° from center
+- Separate control for pitch and yaw axes
 
-## Implementation Details
+## Setup
 
 ### Prerequisites
-- Ubuntu 22.04 (Jammy)
+- Ubuntu 22.04
 - YARP 3.7
 - iCub Main 1.25.0
+- Qt5 for visualization
 
-### Core Components
+### Installation
+1. Clone repository
+2. Build with CMake
+3. Configure YARP network
 
-1. **Visual Processing**
-   - RGB thresholding with conditions:
-     $$
-     \begin{cases}
-     R > 2G \\
-     R > 2B
-     \end{cases}
-     $$
-   - Minimum 50 pixels required for tracking
+### Usage
+1. Start YARP server: `yarpserver`
+2. Launch simulator: `iCub_SIM`
+3. Run tracking: `./gaze_control`
+4. Stop system: `./shutdown.sh`
 
-2. **Control Loop**
-   - 20ms cycle time (50Hz)
-   - Synchronized eye-head motion
-   - Smooth velocity transitions
+## Implementation
+- Real-time image processing at 50Hz
+- Modular design with separate threads for control and visualization
+- Qt-based plotting for performance monitoring
 
 ## Results
 
 ### Visual Tracking Performance
-
-The system demonstrates robust tracking capabilities across various conditions:
+The system demonstrates:
+- Stable tracking of red objects in real-time
+- Natural eye-head coordination
+- Smooth pursuit behavior with head following eyes
+- Real-time performance visualization
 
 ![Tracking Demo](docs/screenshots/preview_compressed.gif)
 
-### Real-time Performance Plots
-
+### Performance Analysis
 Real-time visualization of tracking errors and motor positions:
 
 ![Error Plot](docs/screenshots/error_plot.png)
 ![Position Plot](docs/screenshots/position_plot.png)
 
-## Future Development
-
-The system can be extended through:
-- Integration with deep learning-based object detection
-- Adaptive control for improved tracking performance
-- Predictive motion estimation
-
-## Building and Running
-
-The project includes convenience scripts for common operations:
-
-1. First-time setup and building:
-```bash
-./rebuild.sh
-```
-
-2. Running the system:
-```bash
-./run.sh
-```
-
-3. Shutting down all components:
-```bash
-./shutdown.sh
-```
-
-## Useful References
-
-1. Pattacini, U., et al. (2010). An experimental evaluation of a novel minimum-jerk cartesian controller for humanoid robots. IEEE/RSJ International Conference on Intelligent Robots and Systems.
-
-2. Roncone, A., et al. (2016). Gaze stabilization for humanoid robots: A comprehensive framework. IEEE-RAS International Conference on Humanoid Robots.
+For additional video demonstrations and detailed analysis, see the `docs` folder.

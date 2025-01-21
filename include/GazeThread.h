@@ -17,7 +17,7 @@ public:
     
     bool configure();
     
-    // Getters for plotting
+    // getters for plotting
     double getErrorX() const { return errX; }
     double getErrorY() const { return errY; }
     double getEyeX() const { return eyeYawPosition; }
@@ -30,7 +30,7 @@ protected:
     void threadRelease() override;
     
 private:
-    // YARP interfaces
+    // yarp interfaces
     Network yarp;
     Property prop;
     PolyDriver robotHead;
@@ -40,28 +40,28 @@ private:
     IEncoders* enc;
     BufferedPort<ImageOf<PixelRgb>> imagePort;
     
-    // Control state
+    // control state
     double eyeTiltPosition, eyeYawPosition;
     double eyeEncoderTiltPosition, eyeEncoderYawPosition;
     double neckPitchPosition, neckYawPosition;
     int errX, errY;
     int lastErrX, lastErrY;
-    double integralX, integralY;  // Integral terms for PID
+    double integralX, integralY;  // integral terms for pid
     
-    // Control parameters
-    static constexpr double Kp = 0.2;   // Proportional gain
-    static constexpr double Ki = 0.01;  // Integral gain
-    static constexpr double Kd = 0.05;  // Derivative gain
-    static constexpr double HEAD_GAIN = 1.2;  // Head movement gain
-    static constexpr double MAX_INTEGRAL = 10.0;  // Anti-windup limit
+    // control parameters
+    static constexpr double Kp = 0.2;   // proportional gain
+    static constexpr double Ki = 0.01;  // integral gain
+    static constexpr double Kd = 0.05;  // derivative gain
+    static constexpr double HEAD_GAIN = 1.2;  // head movement gain
+    static constexpr double MAX_INTEGRAL = 10.0;  // anti-windup limit
     
-    // Image dimensions
+    // image dimensions
     static constexpr double IMAGE_WIDTH = 320.0;
     static constexpr double IMAGE_HEIGHT = 240.0;
     static constexpr double CENTER_X = IMAGE_WIDTH / 2.0;
     static constexpr double CENTER_Y = IMAGE_HEIGHT / 2.0;
     
-    // Movement thresholds
+    // movement thresholds
     static constexpr double POSITION_THRESHOLD = 0.2;  // degrees
     static constexpr double ERROR_THRESHOLD = 1.0;     // pixels
 };
