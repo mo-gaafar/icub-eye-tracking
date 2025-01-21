@@ -88,4 +88,3 @@ Real-time visualization of tracking errors and motor positions:
 ![Error Plot](docs/screenshots/error_plot.png)
 ![Position Plot](docs/screenshots/position_plot.png)
 
-For additional video demonstrations and detailed analysis, see the `docs` folder.
